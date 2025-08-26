@@ -231,6 +231,8 @@ builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
+app.UseCors("RestrictedCors");
+
 var env = app.Services.GetRequiredService<IWebHostEnvironment>();
 
 app.Use(async (context, next) =>
@@ -306,7 +308,6 @@ app.UseStaticFiles(new StaticFileOptions
 
 
 app.UseRouting();
-app.UseCors("RestrictedCors");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
