@@ -1,0 +1,81 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\app.js",
+      "PackagePath": "staticwebassets\\CupGame\\app.js"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\index.html",
+      "PackagePath": "staticwebassets\\CupGame\\index.html"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\sounds\\cup-on-table.mp3",
+      "PackagePath": "staticwebassets\\CupGame\\sounds\\cup-on-table.mp3"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\sounds\\lose.mp3",
+      "PackagePath": "staticwebassets\\CupGame\\sounds\\lose.mp3"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\sounds\\success.mp3",
+      "PackagePath": "staticwebassets\\CupGame\\sounds\\success.mp3"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\sounds\\suction.mp3",
+      "PackagePath": "staticwebassets\\CupGame\\sounds\\suction.mp3"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\CupGame\\style.css",
+      "PackagePath": "staticwebassets\\CupGame\\style.css"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\images\\OIP.webp",
+      "PackagePath": "staticwebassets\\images\\OIP.webp"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\images\\cup-game.webp",
+      "PackagePath": "staticwebassets\\images\\cup-game.webp"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\images\\cup_ball.webp",
+      "PackagePath": "staticwebassets\\images\\cup_ball.webp"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\images\\word.png",
+      "PackagePath": "staticwebassets\\images\\word.png"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\word-search\\index.html",
+      "PackagePath": "staticwebassets\\word-search\\index.html"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\word-search\\package-lock.json",
+      "PackagePath": "staticwebassets\\word-search\\package-lock.json"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\word-search\\script.js",
+      "PackagePath": "staticwebassets\\word-search\\script.js"
+    },
+    {
+      "Id": "C:\\Users\\Mxolisi\\Projects\\Play929Backend\\wwwroot\\word-search\\style.css",
+      "PackagePath": "staticwebassets\\word-search\\style.css"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.Play929Backend.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.Play929Backend.props",
+      "PackagePath": "build\\Play929Backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.Play929Backend.props",
+      "PackagePath": "buildMultiTargeting\\Play929Backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.Play929Backend.props",
+      "PackagePath": "buildTransitive\\Play929Backend.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

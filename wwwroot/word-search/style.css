@@ -1,0 +1,191 @@
+/* Style for grid cells */
+.rf-tgrid {
+    font-family: Arial, sans-serif;
+    font-weight: normal;
+    font-size: 14px;
+    margin: 1px;
+    padding: 8px;
+    vertical-align: middle;
+    text-align: center;
+}
+
+#theGrid {
+    width: 100%;        /* full width */
+    min-height: 400px;  /* enough space for the grid */
+    margin: 20px auto;
+    display: block;
+}
+
+/* Style for the grid */
+.rf-tablestyle {
+    border: 2px solid black;
+    background-color: #eee;
+    cursor: pointer;
+}
+
+/* Style for the div containing the grid */
+#rf-searchgamecontainer {
+    float: left;
+    padding-right: 1rem;
+}
+
+/* Style for the div containing the word list */
+#rf-wordcontainer {
+    font-family: Arial, sans-serif;
+    font-weight: normal;
+    font-size: 14px;
+    float: left;
+    padding-right: 0.5rem;
+    cursor: default;
+    margin: 1em 1em 1em 0;
+    width: 200px;
+    margin-top: 60px;
+    border: 2px solid black;
+    background-color: #eee;
+    cursor: pointer;
+}
+
+/* Style for the words that have been found */
+.rf-foundword {
+    font-family: Arial, sans-serif;
+    text-decoration: line-through;
+    color: darkslategray;
+}
+
+#rf-tablegrid .rf-armed {
+     background: lightcyan; 
+}
+
+#rf-tablegrid .rf-highlight {
+    background: red;
+}
+
+#rf-tablegrid .rf-glowing {
+    background: gold;
+}
+
+#rf-tablegrid .rf-selected {
+    background: #00ffff;
+}
+
+/* Style for words that didn't make it on the grid */
+.rf-pfalse {
+    color: #111;
+    visibility: hidden;
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 1200px) {
+    #rf-searchgamecontainer,
+    .rf-tgrid
+    #rf-wordcontainer {
+        padding: 1rem;
+    }
+}
+
+@media screen and (max-width: 700px) {
+    #rf-searchgamecontainer,
+    #rf-wordcontainer {
+        padding: 1rem;
+    }
+}
+body{ 
+	font: normal 13px/20px Arial, Helvetica, sans-serif; word-wrap:break-word;
+	background: #fff;
+  padding-top: 100px
+}
+
+.countdown-label {
+  font: thin 15px Arial, sans-serif;
+	color: #65584c;
+	text-align: center;
+	text-transform: uppercase;
+	display: inline-block;
+  letter-spacing: 2px;
+  margin-top: 9px
+}
+#countdown{
+box-shadow: 0 1px 2px 0 rgba(1, 1, 1, 0.4);
+width: 240px;
+	height: 96px;
+	text-align: center;
+background: #f1f1f1;
+
+	border-radius: 5px;
+
+	margin: auto;
+
+}
+
+
+
+#countdown #tiles{
+  color: #fff;
+	position: relative;
+	z-index: 1;
+text-shadow: 1px 1px 0px #ccc;
+	display: inline-block;
+  font-family: Arial, sans-serif;
+	text-align: center;
+  
+  padding: 20px;
+  border-radius: 5px 5px 0 0;
+  font-size: 48px;
+  font-weight: thin;
+  display: block;
+    
+}
+
+.color-full {
+  background: #53bb74;
+}
+.color-half {
+  background: #ebc85d;
+}
+.color-empty {
+  background: #e5554e;
+}
+
+#countdown #tiles > span{
+	width: 70px;
+	max-width: 70px;
+
+	padding: 18px 0;
+	position: relative;
+}
+
+#countdown .labels{
+	width: 100%;
+	height: 25px;
+	text-align: center;
+	position: absolute;
+	bottom: 8px;
+}
+
+#countdown .labels li{
+	width: 102px;
+	font: bold 15px 'Droid Sans', Arial, sans-serif;
+	color: #f47321;
+	text-shadow: 1px 1px 0px #000;
+	text-align: center;
+	text-transform: uppercase;
+	display: inline-block;
+}
+
+#game-over-message {
+  display: none;
+  text-align: center;
+  font-size: 24px;
+  border-radius: 10px;
+  z-index: 1000;
+  padding: 20px;
+}
+
+#game-win-message {
+  display: none;
+  text-align: center;
+  font-size: 24px;
+  border-radius: 10px;
+  z-index: 1000;
+  padding: 20px;
+}

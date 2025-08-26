@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="game-session-token" content="{injected-session-token}">
+  <title>Find the Ball | Play929.com</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+  <style>
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      color: #333;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <input type="hidden" id="set-time" value="3" />
+  <div id="loading-overlay">Loading, please wait...</div>
+  
+  <div id="controls" class="shadow-lg">
+    <div id="balance" class="balance-container">
+      <span class="balance-label">Balance:</span>
+      <span id="balance-amount" class="balance-amount">R</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <select id="bet-select" class="focus:outline-none">
+        <option value="2">R2</option>
+        <option value="4">R4</option>
+        <option value="10">R10</option>
+        <option value="15">R15</option>
+        <option value="30">R30</option>
+        <option value="50">R50</option>
+      </select>
+      <button id="play-button" class="play-button">Play</button>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+  
+  <script>
+    const url = '/cupHub';
+    
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(url, {
+        accessTokenFactory: () => document.querySelector('meta[name="game-session-token"]').content
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    // Show loading overlay
+    document.getElementById('loading-overlay').style.display = 'flex';
+
+    connection.start()
+      .then(() => {
+        console.log("Connected to SignalR hub");
+        document.getElementById('loading-overlay').style.display = 'none';
+      })
+      .catch((err) => {
+        console.error("SignalR connection error:", err);
+        document.getElementById('loading-overlay').style.display = 'none';
+      });
+  </script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
