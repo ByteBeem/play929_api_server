@@ -319,7 +319,7 @@ app.UseEndpoints(endpoints =>
     endpoints.MapHub<Play929Backend.Hubs.CupHub>("/cuphub");
 });
 
-app.UseAntiforgery();
+
 app.UseStaticFiles();
 
 /*
