@@ -7,10 +7,12 @@ namespace Play929Backend.Services.Interfaces
     {
          Task<string> GenerateWalletAddressAsync(string accountNumber);
          Task<decimal> GetBalanceAsync(string walletAddress);
-         Task<TransactionResult> DepositAsync(string walletAddress, decimal amount, string reference);
          Task<TransactionResult> WithdrawAsync(string walletAddress, decimal amount, string reference);
          Task<Wallet?> GetWalletByEmailAsync(string email);
          Task<List<Transaction>> GetTransactionsAsync(Wallet wallet);
+         Task<TransactionResult> DepositPayfast(string walletAddress, decimal amount, string description, string idempotencyKey , Wallet wallet);
+         Task<Wallet?> GetWalletByAccountNumber(string walletAddress);
+            
      
     }
 }

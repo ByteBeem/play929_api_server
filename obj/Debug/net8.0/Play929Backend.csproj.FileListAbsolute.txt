@@ -149,3 +149,4 @@ C:\Users\Mxolisi\Projects\Play929Backend\obj\Debug\net8.0\ref\Play929Backend.dll
 C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\Play929Backend.staticwebassets.runtime.json
 C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\PaymentData\depositMethods.json
 C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\PaymentData\withdrawalMethods.json
+C:\Users\Mxolisi\Projects\Play929Backend\obj\Debug\net8.0\Play929Backend.sourcelink.json

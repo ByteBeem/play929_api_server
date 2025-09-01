@@ -49,6 +49,9 @@ public class Transaction
     
     [StringLength(255)]
     public string Description { get; set; }
+
+    public string? IdempotencyKey { get; set; }
+
     
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     

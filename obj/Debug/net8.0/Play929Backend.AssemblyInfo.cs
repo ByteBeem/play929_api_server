@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Play929Backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ca18bfa5b9c38c8a623e3fb5e6db65ee3a880a9d")]
 [assembly: System.Reflection.AssemblyProductAttribute("Play929Backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Play929Backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

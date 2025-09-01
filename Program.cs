@@ -27,28 +27,21 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 
-
-
-
 var builder = WebApplication.CreateBuilder(args);
-
 
 var securitySettings = builder.Configuration.GetSection("Security");
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-
-
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("RestrictedCors", policy =>
     {
-        policy.WithOrigins("https://my.play929.com")
+        policy.WithOrigins("https://my.play929.com") // your frontend domain
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
 });
-
 
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
 builder.Services.AddStackExchangeRedisCache(options =>
@@ -57,13 +50,11 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = "Play929_";
 });
 
-
 var redis = ConnectionMultiplexer.Connect(redisConnection);
 builder.Services.AddDataProtection()
     .PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys")
     .SetApplicationName("Play929")
     .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
-
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
@@ -89,7 +80,6 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero 
     };
 
-    
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -104,7 +94,6 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("UserEmail", policy => 
@@ -113,7 +102,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => 
         policy.RequireRole("Admin"));
 });
-
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -140,7 +128,7 @@ builder.Services.AddRateLimiter(options =>
                 SegmentsPerWindow = 6
             }));
 
-            options.AddPolicy("5PerMinute", context => 
+    options.AddPolicy("5PerMinute", context => 
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "global",
             factory: _ => new FixedWindowRateLimiterOptions
@@ -150,7 +138,6 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             }));
 });
-
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -162,18 +149,15 @@ builder.Services.AddAntiforgery(options =>
     options.FormFieldName = "CSRFField";
 });
 
-
 var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(dbConnection, sqlOptions =>
     {
-        // sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
         sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
     });
     options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 });
-
 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
@@ -185,20 +169,15 @@ builder.Services.AddHostedService<QueuedHostedService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddHostedService<BalanceBatchService>();
 
-
-
 builder.Services.AddHealthChecks()
     .AddNpgSql(dbConnection, name: "Database")
     .AddRedis(redisConnection, name: "Redis")
     .AddDbContextCheck<AppDbContext>();
 
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Play929 API", Version = "v1" });
-    
-   
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme",
@@ -208,7 +187,6 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT"
     });
-    
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -221,26 +199,26 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
 builder.Services.Configure<BackgroundTaskQueueOptions>(builder.Configuration.GetSection("BackgroundTasks"));
 builder.Services.AddSingleton<BackgroundTaskQueueOptions>();
-
 builder.Services.AddMemoryCache();
-
-
 
 var app = builder.Build();
 
-app.UseCors("RestrictedCors");
+// Forwarded headers (Azure / reverse proxy support)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
-var env = app.Services.GetRequiredService<IWebHostEnvironment>();
-
+// Security headers
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
     context.Response.Headers.Append("Referrer-Policy", "no-referrer");
+
     var csp = @"
     default-src 'self';
     script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com;
@@ -249,25 +227,15 @@ app.Use(async (context, next) =>
     img-src 'self' data:;
     font-src 'self';
     ";
-
     context.Response.Headers.Add("Content-Security-Policy", csp.Replace("\r\n", ""));
     await next();
 });
-
-
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
-
-
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
     app.UseHttpsRedirection();
 }
-
 
 if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
@@ -283,15 +251,14 @@ if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(
-        Path.Combine(env.WebRootPath, "word-search")),
+        Path.Combine(app.Environment.WebRootPath, "word-search")),
     RequestPath = "/game/word-search"
 });
-
 
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(
-        Path.Combine(env.WebRootPath, "CupGame")), 
+        Path.Combine(app.Environment.WebRootPath, "CupGame")), 
     RequestPath = "/game/cup-game",
     ServeUnknownFileTypes = true,
     DefaultContentType = "application/octet-stream",
@@ -305,9 +272,11 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
-
-
 app.UseRouting();
+
+// ✅ CORS must be before auth
+app.UseCors("RestrictedCors");
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -320,55 +289,7 @@ app.UseEndpoints(endpoints =>
 });
 
 app.UseAntiforgery();
-app.UseStaticFiles();
-
-/*
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
-    
-   
-    //await SeedAdminUser(db);
-}
-
-*/
-
-
-app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
+app.MapControllers();
 
 app.Run();
-
-// ----------------------------------
-// Helper Methods
-// ----------------------------------
-/*
-async Task SeedAdminUser(AppDbContext context)
-{
-    if (await context.Users.AnyAsync(u => u.Email == "admin@play929.com")) 
-        return;
-
-    var adminUser = new User
-    {
-        FullNames = "System Admin",
-        Surname = "Play929",
-        Email = "admin@play929.com",
-        PhoneNumber = "+27781045677",
-        IdNumber = "0412095823081",
-        AccountNumber = "ADMIN001",
-        Role = "Admin",
-        PasswordHash = BCrypt.Net.BCrypt.EnhancedHashPassword(
-        Guid.NewGuid().ToString() + DateTime.UtcNow.Ticks.ToString()),
-        IsEmailVerified = true,
-        IsActive = true,
-        CreatedAt = DateTime.UtcNow,
-        UpdatedAt = DateTime.UtcNow,
-        SecurityStamp = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-    };
-
-    context.Users.Add(adminUser);
-    await context.SaveChangesAsync();
-}
-*/
