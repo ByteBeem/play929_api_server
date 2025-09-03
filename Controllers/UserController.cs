@@ -31,10 +31,11 @@ namespace Play929Backend.Controllers
         private readonly ILogger<UserController> _logger;
         private readonly IConfiguration _config;
         private readonly ISecurityLogService _securityLogService;
-
+        private readonly AppDbContext _context;
         private const string RedirectLink = "https://dashboard.play929.com";
 
         public UserController(
+         AppDbContext context,
             IUserService userService,
             IEmailService emailService,
             IWalletService walletService,
@@ -53,6 +54,7 @@ namespace Play929Backend.Controllers
             _backgroundQueue = backgroundQueue;
             _logger = logger;
             _config = config;
+            _context = context;
             _securityLogService = securityLogService;
         }
 
