@@ -42,7 +42,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("RestrictedCors", policy =>
     {
-        policy.WithOrigins("https://my.play929.com")
+        policy.WithOrigins("https://my.play929.com" , "http://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -69,6 +69,7 @@ builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<GameTimerService>();
 builder.Services.AddSingleton<GameWordService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -163,7 +164,19 @@ builder.Services.AddAntiforgery(options =>
 });
 
 
+// Load connection string from appsettings
 var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+
+
+dbConnection = dbConnection
+    .Replace("__DB_HOST__", Environment.GetEnvironmentVariable("DB_HOST")!)
+    .Replace("__DB_PORT__", Environment.GetEnvironmentVariable("DB_PORT")!)
+    .Replace("__DB_NAME__", Environment.GetEnvironmentVariable("DB_NAME")!)
+    .Replace("__DB_USER__", Environment.GetEnvironmentVariable("DB_USER")!)
+    .Replace("__DB_PASSWORD__", Environment.GetEnvironmentVariable("DB_PASSWORD")!);
+
+    
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(dbConnection, sqlOptions =>
@@ -173,6 +186,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     });
     options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 });
+
 
 
 builder.Services.AddScoped<IUserService, UserService>();

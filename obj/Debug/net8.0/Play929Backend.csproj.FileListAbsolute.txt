@@ -150,3 +150,6 @@ C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\Play929Backend.staticw
 C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\PaymentData\depositMethods.json
 C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\PaymentData\withdrawalMethods.json
 C:\Users\Mxolisi\Projects\Play929Backend\obj\Debug\net8.0\Play929Backend.sourcelink.json
+C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\BouncyCastle.Cryptography.dll
+C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\MailKit.dll
+C:\Users\Mxolisi\Projects\Play929Backend\bin\Debug\net8.0\MimeKit.dll

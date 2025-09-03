@@ -79,6 +79,7 @@ namespace Play929Backend.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<GameSession> GameSessions { get; set; }
         public DbSet<GameLaunchToken> GameLaunchTokens { get; set; }
+        public DbSet<AccountVerificationToken> AccountVerificationTokens { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
 
@@ -108,6 +109,12 @@ namespace Play929Backend.Data
                 .WithMany()
                 .HasForeignKey(t => t.WalletId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+             modelBuilder.Entity<AccountVerificationToken>()
+                .HasOne(t => t.User)
+                .WithMany(u => u.AccountVerificationTokens) 
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<FinancialAudit>()
                 .HasOne(f => f.Wallet)

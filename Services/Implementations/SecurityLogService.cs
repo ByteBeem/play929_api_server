@@ -37,23 +37,26 @@ namespace Play929Backend.Services.Implementations
             }
         }
 
-        public async Task<List<SecurityLog>> GetSecurityLogsAsync(int userId)
+       public async Task<List<SecurityLog>> GetSecurityLogsAsync(int userId)
         {
             if (userId <= 0)
-            throw new ArgumentException("Invalid userId", nameof(userId));
+                throw new ArgumentException("Invalid userId", nameof(userId));
 
             try
             {
-            return await _context.SecurityLogs
-                .Where(log => log.UserId == userId)
-                .ToListAsync();
+                return await _context.SecurityLogs
+                    .Where(log => log.UserId == userId)
+                    .OrderByDescending(log => log.CreatedAt) 
+                    .Take(10)
+                    .ToListAsync();
             }
             catch (Exception ex)
             {
-            _logger.LogError(ex, "Failed to retrieve security logs for userId: {UserId}", userId);
-            throw;
+                _logger.LogError(ex, "Failed to retrieve security logs for userId: {UserId}", userId);
+                throw;
             }
         }
+
 
       
     }

@@ -9,6 +9,7 @@ using Play929Backend.DTOs;
 using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
+using System.Security.Cryptography;
 using Play929Backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using System;
@@ -23,6 +24,7 @@ namespace Play929Backend.Controllers
     {
         private readonly IUserService _userService;
         private readonly IWalletService _walletService;
+        private readonly IEmailService _emailService;
         private readonly ITransactionService _transactionService;
         private readonly INotificationService _notificationService;
         private readonly IBackgroundTaskQueue _backgroundQueue;
@@ -30,10 +32,11 @@ namespace Play929Backend.Controllers
         private readonly IConfiguration _config;
         private readonly ISecurityLogService _securityLogService;
 
-        private const string RedirectLink = "http://localhost:3000";
+        private const string RedirectLink = "https://dashboard.play929.com";
 
         public UserController(
             IUserService userService,
+            IEmailService emailService,
             IWalletService walletService,
             ITransactionService transactionService,
             INotificationService notificationService,
@@ -43,6 +46,7 @@ namespace Play929Backend.Controllers
             ISecurityLogService securityLogService)
         {
             _userService = userService;
+            _emailService = emailService;
             _walletService = walletService;
             _transactionService = transactionService;
             _notificationService = notificationService;
@@ -53,121 +57,133 @@ namespace Play929Backend.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        request.Email = request.Email?.Trim().ToLowerInvariant();
+        request.FullNames = request.FullNames?.Trim();
+        request.Surname = request.Surname?.Trim();
+        request.PhoneNumber = request.PhoneNumber?.Trim();
+        request.IdNumber = request.IdNumber?.Trim();
+
+        if (!new EmailAddressAttribute().IsValid(request.Email))
+            return BadRequest(new { Error = "Invalid email format" });
+
+        if (string.IsNullOrWhiteSpace(request.IdNumber) || request.IdNumber.Length != 13 || !Regex.IsMatch(request.IdNumber, @"^\d{13}$"))
+            return BadRequest(new { Error = "ID Number must be exactly 13 numeric digits" });
+
+        var passwordError = ValidatePassword(request.Password);
+        if (passwordError != null)
+            return BadRequest(new { Error = passwordError });
+
+        if (request.Password.ToLowerInvariant() != request.ConfirmPassword.ToLowerInvariant())
+            return BadRequest(new { Error = "Passwords do not match." });
+
+        if (await _userService.EmailExistsAsync(request.Email))
+            return Conflict(new { Error = "Email already registered" });
+
+        if (await _userService.IdNumberExistsAsync(request.IdNumber))
+            return Conflict(new { Error = "ID Number already registered" });
+
+        await using var transaction = await _userService.BeginTransactionAsync();
+
+        try
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var accountNumber = await _userService.GenerateAccountNumberAsync();
+            var walletAddress = await _walletService.GenerateWalletAddressAsync(accountNumber);
+            var bonusAmount = _config.GetValue<decimal>("SignupBonus:Amount", 20.00m);
 
-            request.Email = request.Email?.Trim().ToLowerInvariant();
-            request.FullNames = request.FullNames?.Trim();
-            request.Surname = request.Surname?.Trim();
-            request.PhoneNumber = request.PhoneNumber?.Trim();
-            request.IdNumber = request.IdNumber?.Trim();
-
-            if (!new EmailAddressAttribute().IsValid(request.Email))
-                return BadRequest(new { Error = "Invalid email format" });
-
-            if (string.IsNullOrWhiteSpace(request.IdNumber) || request.IdNumber.Length != 13 || !Regex.IsMatch(request.IdNumber, @"^\d{13}$"))
-                return BadRequest(new { Error = "ID Number must be exactly 13 numeric digits" });
-
-            var passwordError = ValidatePassword(request.Password);
-            if (passwordError != null)
-                return BadRequest(new { Error = passwordError });
-
-            if (request.Password.ToLowerInvariant() != request.ConfirmPassword.ToLowerInvariant())
-                return BadRequest(new { Error = "Password do not match." });
-
-            if (await _userService.EmailExistsAsync(request.Email) == true)
-                return Conflict(new { Error = "Email already registered" });
-
-            if (await _userService.IdNumberExistsAsync(request.IdNumber) == true)
-                return Conflict(new { Error = "ID Number already registered" });
-
-            await using var transaction = await _userService.BeginTransactionAsync();
-
-            try
+            var user = new User
             {
-                var accountNumber = await _userService.GenerateAccountNumberAsync();
-                var walletAddress = await _walletService.GenerateWalletAddressAsync(accountNumber);
-                var bonusAmount = _config.GetValue<decimal>("SignupBonus:Amount", 20.00m);
-
-                var user = new User
+                FullNames = request.FullNames,
+                Surname = request.Surname,
+                Email = request.Email,
+                PhoneNumber = request.PhoneNumber,
+                IdNumber = request.IdNumber,
+                AccountNumber = accountNumber,
+                PasswordHash = _userService.HashPassword(request.Password),
+                IsEmailVerified = false, 
+                IsActive = false,
+                LastPasswordChange = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Wallet = new Wallet
                 {
-                    FullNames = request.FullNames,
-                    Surname = request.Surname,
-                    Email = request.Email,
-                    PhoneNumber = request.PhoneNumber,
-                    IdNumber = request.IdNumber,
-                    AccountNumber = accountNumber,
-                    PasswordHash = _userService.HashPassword(request.Password),
-                    IsEmailVerified = true,
-                    IsActive = true,
-                    LastPasswordChange = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    Wallet = new Wallet
-                    {
-                        Balance = bonusAmount,
-                        WalletAddress = walletAddress,
-                        WalletType = "Standard",
-                        Currency = "ZAR",
-                        IsFrozen = false,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    }
-                };
-
-                var createdUser = await _userService.RegisterAsync(user, transaction);
-
-                await _userService.AssignRoleAsync(createdUser.Id.ToString(), "User");
-
-                await _securityLogService.LogSecurityEventAsync(new SecurityLog
-                {
-                    UserId = createdUser.Id,
-                    IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown IP",
-                    Action = "Register",
-                    Description = "User registration completed",
-                    Timestamp = DateTime.UtcNow
-                });
-
-                await _transactionService.CreateAsync(new Transaction
-                {
-                    UserId = createdUser.Id,
-                    WalletId = createdUser.Wallet.Id,
-                    Amount = bonusAmount,
-                    Type = "Bonus",
-                    Description = "Sign up Bonus",
-                    Timestamp = DateTime.UtcNow,
+                    Balance = bonusAmount,
                     WalletAddress = walletAddress,
-                    Status = "Completed"
-                });
+                    WalletType = "Standard",
+                    Currency = "ZAR",
+                    IsFrozen = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                }
+            };
 
-                await _notificationService.CreateAsync(new Notification
-                {
-                    UserId = createdUser.Id,
-                    Message = "Welcome to Play929! Your account has been created successfully.",
-                    Type = "Email",
-                    IsRead = false,
-                    SentAt = DateTime.UtcNow
-                });
+            var createdUser = await _userService.RegisterAsync(user, transaction);
+            await _userService.AssignRoleAsync(createdUser.Id.ToString(), "User");
 
-                await transaction.CommitAsync();
+            
+            var verificationToken = GenerateSecureToken();
+            await _userService.SaveEmailVerificationTokenAsync(createdUser.Id, verificationToken);
 
-                return Ok(new
-                {
-                    createdUser.Id,
-                    createdUser.Email,
-                    createdUser.AccountNumber,
-                    Message = "Registration successful. Please verify your email."
-                });
-            }
-            catch (Exception ex)
+            // Send templated email
+            var verifyLink = $"https://secure.play929.com/verify-email?token={verificationToken}";
+            await _emailService.SendTemplateEmailAsync(
+                toEmail: createdUser.Email,
+                template: EmailTemplate.EmailVerify,
+                templateData: new { FullName = createdUser.FullNames, VerifyLink = verifyLink, ExpiryHours = 24 },
+                subject: "Verify Your Play929 Account"
+            );
+
+            await _securityLogService.LogSecurityEventAsync(new SecurityLog
             {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error during registration for {Email}", request.Email);
-                return StatusCode(500, new { Error = "Registration failed. Try again later." });
-            }
+                UserId = createdUser.Id,
+                IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                Action = "Register",
+                Description = "User registration completed",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _transactionService.CreateAsync(new Transaction
+            {
+                UserId = createdUser.Id,
+                WalletId = createdUser.Wallet.Id,
+                Amount = bonusAmount,
+                Type = "Bonus",
+                Description = "Sign up Bonus",
+                Timestamp = DateTime.UtcNow,
+                WalletAddress = walletAddress,
+                Status = "Completed"
+            });
+
+            await _notificationService.CreateAsync(new Notification
+            {
+                UserId = createdUser.Id,
+                Message = "Welcome to Play929! Your account has been created successfully.",
+                Type = "Email",
+                IsRead = false,
+                SentAt = DateTime.UtcNow
+            });
+
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                createdUser.Id,
+                createdUser.Email,
+                createdUser.AccountNumber,
+                Message = "Registration successful. Please verify your email."
+            });
         }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error during registration for {Email}", request.Email);
+            return StatusCode(500, new { Error = "Registration failed. Try again later." });
+        }
+    }
 
         [HttpPost("login")]
         [EnableRateLimiting("5PerMinute")]
@@ -266,13 +282,14 @@ namespace Play929Backend.Controllers
 
                     // Set new refresh token in cookies
                        Response.Cookies.Append("refreshToken", newRefreshTokenValue, new CookieOptions
-                        {
-                            HttpOnly = true,
-                            Secure = false,  
-                            SameSite = SameSiteMode.Lax, 
-                            Expires = DateTime.UtcNow.AddDays(7),
-                            Path = "/"
-                        });
+                    {
+                        HttpOnly = true,                   
+                        Secure = true,                      
+                        SameSite = SameSiteMode.None,        
+                        Domain = ".play929.com",             
+                        Expires = DateTime.UtcNow.AddDays(7),
+                        Path = "/"                            
+                    });
 
                     // Log the token refresh
                     await _securityLogService.LogSecurityEventAsync(new SecurityLog
@@ -323,6 +340,56 @@ namespace Play929Backend.Controllers
             return result ? Ok(new { Message = "Session ended." }) : NotFound(new { Error = "Token not found." });
         }
 
+
+        
+       [HttpGet("/verify-email")]
+        public async Task<IActionResult> Verify([FromQuery] string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return BadRequest(new { error = "Missing token." });
+
+            var dbtoken = await _dbContext.AccountVerificationTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t =>
+                t.Token == token &&
+                !t.Used &&
+                t.ExpiresAt > DateTime.UtcNow
+            );
+
+                if (dbtoken == null)
+                    return Unauthorized(new { error = "Invalid or expired  token." });
+
+        
+            var user = dbtoken.User;
+
+            user.IsEmailVerified = true;
+            user.IsActive = true;
+            await _context.SaveChangesAsync();
+
+            var accessToken = await _userService.GenerateAccessToken(user);
+
+            // Send templated email
+            var dashboardLink = $"https://dashboard.play929.com/?sid={accessToken}";
+            await _emailService.SendTemplateEmailAsync(
+                toEmail: user.Email,
+                template: EmailTemplate.Notification,
+                templateData: new
+                {
+                    FullName = user.FullNames,
+                    dashboardLink,
+                    Message = "Your email has been successfully verified and received our R20 signup bonus. You can now log in to your account."
+                },
+                subject: "Welcome to Play929!"
+            );
+
+            return Ok(new
+            {
+                message = "Email verified successfully.",
+                dashboardLink
+            });
+        }
+
+
         [Authorize]
         [HttpGet("data")]
         public async Task<IActionResult> GetData()
@@ -338,16 +405,8 @@ namespace Play929Backend.Controllers
                 if (user == null)
                     return NotFound(new { error = "Data not found" });
 
-                await _securityLogService.LogSecurityEventAsync(new SecurityLog
-                {
-                    UserId = user.Id,
-                    IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    Action = "Data Enquiry",
-                    Timestamp = DateTime.UtcNow,
-                    Description = "User checked their data"
-                });
-
-                return Ok(new { user.Id, user.FullNames, user.Surname, user.Email, user.PhoneNumber, user.IdNumber, user.AccountNumber });
+            
+                return Ok(new { user.Id, user.FullNames, user.Surname, user.Email, user.PhoneNumber, user.AccountNumber });
             }
             catch (Exception ex)
             {
@@ -402,19 +461,21 @@ namespace Play929Backend.Controllers
 
                 await _userService.StoreRefreshTokenAsync(refreshToken);
 
-                Response.Cookies.Append("refreshToken", refreshTokenValue, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = false,  
-                SameSite = SameSiteMode.Lax, 
-                Expires = DateTime.UtcNow.AddDays(7),
-                Path = "/"
-            });
+             Response.Cookies.Append("refreshToken", refreshTokenValue, new CookieOptions
+                {
+                    HttpOnly = true,                   
+                    Secure = true,                      
+                    SameSite = SameSiteMode.None,        
+                    Domain = ".play929.com",             
+                    Expires = DateTime.UtcNow.AddDays(7),
+                    Path = "/"                            
+                });
+
 
 
                 await transaction.CommitAsync();
 
-                var LoginRedirectLink = $"{RedirectLink}/dashboard?sid={accessToken}";
+                var LoginRedirectLink = $"{RedirectLink}/?sid={accessToken}";
 
                 return Ok(new
                 {
@@ -428,6 +489,20 @@ namespace Play929Backend.Controllers
                 _logger.LogError(ex, "Error handling successful login for userId={UserId}", user.Id);
                 return StatusCode(500, new { Error = "Login processing failed" });
             }
+        }
+
+        private string GenerateSecureToken(int sizeInBytes = 32)
+        {
+            // Generate cryptographically secure random bytes
+            byte[] tokenBytes = RandomNumberGenerator.GetBytes(sizeInBytes);
+
+            // Convert to URL-safe Base64 string
+            string token = Convert.ToBase64String(tokenBytes)
+                .Replace("+", "-")
+                .Replace("/", "_")
+                .TrimEnd('=');
+
+            return token;
         }
 
         private static bool IsPasswordStructurallyValid(string password) =>

@@ -7,10 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+   <Content Include="MailTemplates\**\*.*">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
     <PackageReference Include="AspNetCore.HealthChecks.Npgsql" Version="9.0.0" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
     <PackageReference Include="Bcrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="MailKit" Version="4.13.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="9.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.0" />

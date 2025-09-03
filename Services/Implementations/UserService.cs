@@ -249,6 +249,48 @@ namespace Play929Backend.Services.Implementations
             }
         }
 
+       private async Task SaveEmailVerificationTokenAsync(int userId, string token, int expiryHours = 24)
+        {
+            if (userId <= 0)
+                throw new ArgumentException("User ID must be a positive integer.", nameof(userId));
+
+            if (string.IsNullOrWhiteSpace(token))
+                throw new ArgumentException("Token cannot be null or empty.", nameof(token));
+
+            if (expiryHours <= 0)
+                throw new ArgumentException("Expiry hours must be greater than zero.", nameof(expiryHours));
+
+            try
+            {
+               
+                var existingTokens = await _context.AccountVerificationTokens
+                    .Where(t => t.UserId == userId && !t.Used && t.ExpiresAt > DateTime.UtcNow)
+                    .ToListAsync();
+
+                foreach (var t in existingTokens)
+                {
+                    t.Used = true;
+                }
+
+                var verificationToken = new AccountVerificationToken
+                {
+                    UserId = userId,
+                    Token = token,
+                    Used = false,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddHours(expiryHours)
+                };
+
+                _context.AccountVerificationTokens.Add(verificationToken);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to save email verification token.", ex);
+            }
+        }
+
+
         public async Task<string> GenerateAccessToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
