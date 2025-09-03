@@ -348,7 +348,7 @@ namespace Play929Backend.Controllers
             if (string.IsNullOrWhiteSpace(token))
                 return BadRequest(new { error = "Missing token." });
 
-            var dbtoken = await _dbContext.AccountVerificationTokens
+            var dbtoken = await _context.AccountVerificationTokens
             .Include(t => t.User)
             .FirstOrDefaultAsync(t =>
                 t.Token == token &&
