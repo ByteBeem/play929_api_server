@@ -146,7 +146,7 @@ namespace Play929Backend.Hubs
                         old.RoundCount += 1;
                         old.PendingBalanceChange -= betAmount;
                         old.LastBetAmount = betAmount;
-                        old.ConnectionId = Context.ConnectionId; // Update ConnectionId
+                        old.ConnectionId = Context.ConnectionId;
                     }
                     return old;
                 });
@@ -262,15 +262,26 @@ namespace Play929Backend.Hubs
             var sessionToken = Context.GetHttpContext()?.Request.Query["access_token"].ToString();
             if (!string.IsNullOrEmpty(sessionToken) && _gameStates.TryGetValue(sessionToken, out var gameState))
             {
+                Wallet wallet = null;
+                decimal change = 0m;
                 lock (gameState.Lock)
                 {
                     if (gameState.ConnectionId == Context.ConnectionId)
                     {
                         _logger.LogInformation("Client disconnected for sessionToken: {SessionToken}, ConnectionId: {ConnectionId}", 
                             sessionToken, Context.ConnectionId);
-                        await CommitBalanceAsync(sessionToken, gameState.Wallet, gameState);
+                        wallet = gameState.Wallet;
+                        change = gameState.PendingBalanceChange;
+                        gameState.PendingBalanceChange = 0;
+                        gameState.RoundCount = 0;
+                        gameState.LastBetAmount = 0m;
                         _gameStates.TryRemove(sessionToken, out _);
                     }
+                }
+
+                if (wallet != null && change != 0)
+                {
+                    await CommitBalanceAsync(sessionToken, wallet, new GameState { Wallet = wallet, PendingBalanceChange = change });
                 }
             }
             await base.OnDisconnectedAsync(exception);
