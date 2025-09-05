@@ -345,91 +345,148 @@ namespace Play929Backend.Controllers
         }
 
 
-        
- [HttpGet("/verify-email")]
+[HttpGet("/verify-email")]
 public async Task<IActionResult> Verify([FromQuery] string token)
 {
+    // Log input
+    _logger.LogInformation("Received verify-email request with token: {Token}", token);
+
     if (string.IsNullOrWhiteSpace(token))
+    {
+        _logger.LogWarning("Token is null or whitespace");
         return Redirect("/verify-email-fail.html?message=Missing+token");
+    }
 
     using var transaction = await _context.Database.BeginTransactionAsync();
     try
     {
+        // Query for token
+        _logger.LogInformation("Querying AccountVerificationTokens for token: {Token}", token);
         var dbtoken = await _context.AccountVerificationTokens
-            .Include(t => t.User)
             .FirstOrDefaultAsync(t =>
                 t.Token == token &&
                 !t.Used &&
-                t.ExpiresAt > DateTime.UtcNow
-            );
+                t.ExpiresAt > DateTime.UtcNow);
 
         if (dbtoken == null)
+        {
+            _logger.LogWarning("No valid token found. Token: {Token}, Current UTC: {UtcNow}", token, DateTime.UtcNow);
             return Redirect("/verify-email-fail.html?message=Invalid+or+expired+token");
+        }
 
-        var user = await _context.Users 
+        _logger.LogInformation("Found token: UserId={UserId}, ExpiresAt={ExpiresAt}, Used={Used}", 
+            dbtoken.UserId, dbtoken.ExpiresAt, dbtoken.Used);
+
+        // Query for user
+        _logger.LogInformation("Querying Users for UserId: {UserId}", dbtoken.UserId);
+        var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Id == dbtoken.UserId);
-            
-        if (user == null)
-            return Redirect("/verify-email-fail.html?message=User+not+found");
 
-        // Update states in transaction
+        if (user == null)
+        {
+            _logger.LogWarning("No user found for UserId: {UserId}", dbtoken.UserId);
+            return Redirect("/verify-email-fail.html?message=User+not+found");
+        }
+
+        _logger.LogInformation("Found user: Id={Id}, Email={Email}, IsEmailVerified={IsEmailVerified}, IsActive={IsActive}", 
+            user.Id, user.Email, user.IsEmailVerified, user.IsActive);
+
+        // Log entity states before updates
+        _logger.LogInformation("Before updates - User state: {UserState}, Token state: {TokenState}", 
+            _context.Entry(user).State, _context.Entry(dbtoken).State);
+
+        // Update states
         user.IsEmailVerified = true;
         user.IsActive = true;
         dbtoken.Used = true;
 
-        await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
+        // Log entity states after updates
+        _logger.LogInformation("After updates - User state: {UserState}, Token state: {TokenState}, " +
+            "IsEmailVerified={IsEmailVerified}, IsActive={IsActive}, Used={Used}", 
+            _context.Entry(user).State, _context.Entry(dbtoken).State, 
+            user.IsEmailVerified, user.IsActive, dbtoken.Used);
 
-        // Generate access token
+        // Save changes
+        _logger.LogInformation("Calling SaveChangesAsync");
+        var changes = await _context.SaveChangesAsync();
+        _logger.LogInformation("SaveChangesAsync completed. Number of changes saved: {Changes}", changes);
+
+        // Commit transaction
+        _logger.LogInformation("Committing transaction");
+        await transaction.CommitAsync();
+        _logger.LogInformation("Transaction committed successfully");
+
+        // Non-critical operations (moved outside transaction)
+        _logger.LogInformation("Generating access token for user: {UserId}", user.Id);
         var accessToken = await _userService.GenerateAccessToken(user);
         var dashboardLink = $"https://dashboard.play929.com/?sid={accessToken}";
+        _logger.LogInformation("Access token generated. Dashboard link: {DashboardLink}", dashboardLink);
 
-        // Optional: send welcome email
-        await _emailService.SendTemplateEmailAsync(
-            toEmail: user.Email,
-            template: EmailTemplate.Notification,
-            templateData: new
-            {
-                FullName = user.FullNames,
-                dashboardLink,
-                Message = "Your email has been successfully verified and received our R20 signup bonus."
-            },
-            subject: "Welcome to Play929!"
-        );
+        // Send welcome email
+        _logger.LogInformation("Sending welcome email to: {Email}", user.Email);
+        try
+        {
+            await _emailService.SendTemplateEmailAsync(
+                toEmail: user.Email,
+                template: EmailTemplate.Notification,
+                templateData: new
+                {
+                    FullName = user.FullNames,
+                    dashboardLink,
+                    Message = "Your email has been successfully verified and received our R20 signup bonus."
+                },
+                subject: "Welcome to Play929!"
+            );
+            _logger.LogInformation("Welcome email sent successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send welcome email to {Email}. Continuing execution.", user.Email);
+        }
 
+        // Generate and store refresh token
+        _logger.LogInformation("Generating refresh token for user: {UserId}", user.Id);
         var refreshTokenValue = await _userService.GenerateRefreshToken(user);
+        var refreshToken = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            Token = refreshTokenValue,
+            Expires = DateTime.UtcNow.AddDays(7),
+            UserId = user.Id,
+            Revoked = false
+        };
 
-                var refreshToken = new RefreshToken
-                {
-                    Id = Guid.NewGuid(),
-                    Token = refreshTokenValue,
-                    Expires = DateTime.UtcNow.AddDays(7),
-                    UserId = user.Id,
-                    Revoked = false
-                };
+        _logger.LogInformation("Storing refresh token for user: {UserId}", user.Id);
+        await _userService.StoreRefreshTokenAsync(refreshToken);
+        _logger.LogInformation("Refresh token stored successfully");
 
-                await _userService.StoreRefreshTokenAsync(refreshToken);
+        // Set cookie
+        _logger.LogInformation("Setting refreshToken cookie");
+        Response.Cookies.Append("refreshToken", refreshTokenValue, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Domain = ".play929.com",
+            Expires = DateTime.UtcNow.AddDays(7),
+            Path = "/"
+        });
+        _logger.LogInformation("refreshToken cookie set successfully");
 
-             Response.Cookies.Append("refreshToken", refreshTokenValue, new CookieOptions
-                {
-                    HttpOnly = true,                   
-                    Secure = true,                      
-                    SameSite = SameSiteMode.None,        
-                    Domain = ".play929.com",             
-                    Expires = DateTime.UtcNow.AddDays(7),
-                    Path = "/"                            
-                });
-
-        // Redirect to static success page with query params
+        // Redirect to success page
+        _logger.LogInformation("Redirecting to success page for user: {UserId}", user.Id);
         return Redirect($"/verify-email-success.html?name={Uri.EscapeDataString(user.FullNames)}&link={Uri.EscapeDataString(dashboardLink)}");
     }
-    catch
+    catch (Exception ex)
     {
+        // Log detailed exception
+        _logger.LogError(ex, "Error verifying email with token: {Token}. Inner exception: {InnerException}", 
+            token, ex.InnerException?.Message);
         await transaction.RollbackAsync();
+        _logger.LogInformation("Transaction rolled back due to error");
         return Redirect("/verify-email-fail.html?message=Unexpected+error");
     }
 }
-
 
 
 
