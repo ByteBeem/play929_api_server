@@ -14,10 +14,8 @@ namespace Play929Backend.Hubs
     {
         private readonly ILogger<CupHub> _logger;
         private readonly AppDbContext _dbContext;
-
         private static readonly ConcurrentDictionary<string, GameState> _gameStates
             = new ConcurrentDictionary<string, GameState>();
-
         private const int BatchSize = 10;
 
         public CupHub(AppDbContext dbContext, ILogger<CupHub> logger)
@@ -33,56 +31,104 @@ namespace Play929Backend.Hubs
             public decimal PendingBalanceChange { get; set; }
             public decimal LastBetAmount { get; set; }
             public Wallet Wallet { get; set; }
-            public string ConnectionId { get; set; } 
+            public string ConnectionId { get; set; }
             public readonly object Lock = new object();
         }
 
         public static ConcurrentDictionary<string, GameState> GetGameStates() => _gameStates;
 
+        public override async Task OnConnectedAsync()
+        {
+            var sessionToken = Context.GetHttpContext()?.Request.Query["access_token"].ToString();
+            if (!string.IsNullOrEmpty(sessionToken))
+            {
+                _logger.LogInformation("Client connected with sessionToken: {SessionToken}, ConnectionId: {ConnectionId}", 
+                    sessionToken, Context.ConnectionId);
+
+                var session = await _dbContext.GameSessions
+                    .FirstOrDefaultAsync(s => s.SessionToken == sessionToken);
+
+                if (session != null && _gameStates.TryGetValue(sessionToken, out var gameState))
+                {
+                    lock (gameState.Lock)
+                    {
+                        _logger.LogInformation("Updating ConnectionId for sessionToken: {SessionToken} from {OldConnectionId} to {NewConnectionId}", 
+                            sessionToken, gameState.ConnectionId, Context.ConnectionId);
+                        gameState.ConnectionId = Context.ConnectionId;
+                    }
+                }
+            }
+            await base.OnConnectedAsync();
+        }
+
         public async Task PlaceBet(decimal betAmount)
         {
             var sessionToken = Context.GetHttpContext()?.Request.Query["access_token"].ToString();
+            _logger.LogInformation("PlaceBet called with sessionToken: {SessionToken}, betAmount: {BetAmount}, ConnectionId: {ConnectionId}", 
+                sessionToken, betAmount, Context.ConnectionId);
+
             if (string.IsNullOrEmpty(sessionToken))
             {
+                _logger.LogWarning("Invalid session token.");
                 await Clients.Caller.SendAsync("Error", "Invalid session token.");
                 return;
             }
 
             if (betAmount <= 0)
             {
+                _logger.LogWarning("Bet amount must be positive: {BetAmount}", betAmount);
                 await Clients.Caller.SendAsync("Error", "Bet amount must be positive.");
                 return;
             }
 
             var session = await _dbContext.GameSessions
-               
                 .FirstOrDefaultAsync(s => s.SessionToken == sessionToken);
 
             if (session == null)
             {
+                _logger.LogWarning("Session not found for sessionToken: {SessionToken}", sessionToken);
                 await Clients.Caller.SendAsync("Error", "Session not found.");
                 return;
             }
 
             Wallet wallet;
-            GameState gameState = null;
+            GameState gameState;
 
             if (_gameStates.TryGetValue(sessionToken, out var existingState))
             {
-                if (existingState.ConnectionId != Context.ConnectionId)
+                lock (existingState.Lock)
                 {
-                    await Clients.Caller.SendAsync("Error", "Session in use on another connection.");
-                    return;
+                    if (existingState.ConnectionId != Context.ConnectionId)
+                    {
+                        _logger.LogInformation("Updating ConnectionId for sessionToken: {SessionToken} from {OldConnectionId} to {NewConnectionId}", 
+                            sessionToken, existingState.ConnectionId, Context.ConnectionId);
+                        existingState.ConnectionId = Context.ConnectionId;
+                    }
+                    gameState = existingState;
+                    wallet = gameState.Wallet;
                 }
-                wallet = existingState.Wallet;
             }
             else
             {
                 wallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.UserId == session.UserId);
+                if (wallet == null)
+                {
+                    _logger.LogWarning("Wallet not found for UserId: {UserId}", session.UserId);
+                    await Clients.Caller.SendAsync("Error", "Wallet not found.");
+                    return;
+                }
+
+                gameState = new GameState
+                {
+                    Wallet = wallet,
+                    ConnectionId = Context.ConnectionId
+                };
             }
 
-            if (wallet == null || wallet.Balance < betAmount)
+            if (wallet.Balance < betAmount)
             {
+                _logger.LogWarning("Insufficient balance for UserId: {UserId}, Balance: {Balance}, BetAmount: {BetAmount}", 
+                    session.UserId, wallet.Balance, betAmount);
                 await Clients.Caller.SendAsync("Error", "Insufficient balance.");
                 return;
             }
@@ -91,32 +137,22 @@ namespace Play929Backend.Hubs
             var swaps = GenerateShuffle();
 
             _gameStates.AddOrUpdate(sessionToken,
-                new GameState
-                {
-                    BallCupIndex = ballCupIndex,
-                    RoundCount = 1,
-                    PendingBalanceChange = -betAmount,
-                    LastBetAmount = betAmount,
-                    Wallet = wallet,
-                    ConnectionId = Context.ConnectionId
-                },
+                gameState,
                 (key, old) =>
                 {
                     lock (old.Lock)
                     {
-                        if (old.ConnectionId != Context.ConnectionId)
-                        {
-                            // Log and ignore, or throw
-                            _logger.LogWarning("Connection ID mismatch for session {SessionToken}", sessionToken);
-                            return old;
-                        }
                         old.BallCupIndex = ballCupIndex;
                         old.RoundCount += 1;
                         old.PendingBalanceChange -= betAmount;
                         old.LastBetAmount = betAmount;
+                        old.ConnectionId = Context.ConnectionId; // Update ConnectionId
                     }
                     return old;
                 });
+
+            _logger.LogInformation("Bet placed for sessionToken: {SessionToken}, BallCupIndex: {BallCupIndex}, RoundCount: {RoundCount}", 
+                sessionToken, ballCupIndex, gameState.RoundCount);
 
             await Clients.Caller.SendAsync("ShuffleCups", new { swaps });
         }
@@ -124,23 +160,31 @@ namespace Play929Backend.Hubs
         public async Task SelectCup(int selectedCupIndex)
         {
             var sessionToken = Context.GetHttpContext()?.Request.Query["access_token"].ToString();
+            _logger.LogInformation("SelectCup called with sessionToken: {SessionToken}, selectedCupIndex: {SelectedCupIndex}, ConnectionId: {ConnectionId}", 
+                sessionToken, selectedCupIndex, Context.ConnectionId);
+
             if (string.IsNullOrEmpty(sessionToken) || !_gameStates.TryGetValue(sessionToken, out var gameState))
             {
+                _logger.LogWarning("Invalid session or no active game for sessionToken: {SessionToken}", sessionToken);
                 await Clients.Caller.SendAsync("Error", "Invalid session or no active game.");
                 return;
             }
 
-            if (gameState.ConnectionId != Context.ConnectionId)
+            lock (gameState.Lock)
             {
-                await Clients.Caller.SendAsync("Error", "Session in use on another connection.");
-                return;
+                if (gameState.ConnectionId != Context.ConnectionId)
+                {
+                    _logger.LogInformation("Updating ConnectionId for sessionToken: {SessionToken} from {OldConnectionId} to {NewConnectionId}", 
+                        sessionToken, gameState.ConnectionId, Context.ConnectionId);
+                    gameState.ConnectionId = Context.ConnectionId;
+                }
             }
 
             var session = await _dbContext.GameSessions
-                
                 .FirstOrDefaultAsync(s => s.SessionToken == sessionToken);
             if (session == null)
             {
+                _logger.LogWarning("Session not found for sessionToken: {SessionToken}", sessionToken);
                 await Clients.Caller.SendAsync("Error", "Session not found.");
                 return;
             }
@@ -148,12 +192,13 @@ namespace Play929Backend.Hubs
             var wallet = gameState.Wallet;
             if (wallet == null)
             {
+                _logger.LogWarning("Wallet not found for sessionToken: {SessionToken}", sessionToken);
                 await Clients.Caller.SendAsync("Error", "Wallet not found.");
                 return;
             }
 
             bool isWin = selectedCupIndex == gameState.BallCupIndex;
-            decimal roundChange = isWin ? gameState.LastBetAmount * 2m : 0m; 
+            decimal roundChange = isWin ? gameState.LastBetAmount * 2m : 0m;
             decimal newBalance;
 
             lock (gameState.Lock)
@@ -167,6 +212,9 @@ namespace Play929Backend.Hubs
             {
                 await CommitBalanceAsync(sessionToken, wallet, gameState);
             }
+
+            _logger.LogInformation("Game result for sessionToken: {SessionToken}, isWin: {IsWin}, newBalance: {NewBalance}, ballCupIndex: {BallCupIndex}", 
+                sessionToken, isWin, newBalance, gameState.BallCupIndex);
 
             await Clients.Caller.SendAsync("GameResult", new
             {
@@ -192,19 +240,20 @@ namespace Play929Backend.Hubs
 
             try
             {
-                _dbContext.Update(wallet); 
+                _dbContext.Update(wallet);
                 await _dbContext.SaveChangesAsync();
-                _logger.LogInformation("Balance committed for session {SessionToken}. Change={Change}, New balance={NewBalance}",
+                _logger.LogInformation("Balance committed for sessionToken: {SessionToken}, Change: {Change}, New balance: {NewBalance}", 
                     sessionToken, change, wallet.Balance);
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                _logger.LogError(ex, "Concurrency conflict committing balance for session {SessionToken}.", sessionToken);
-                
+                _logger.LogError(ex, "Concurrency conflict committing balance for sessionToken: {SessionToken}", sessionToken);
+                throw;
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Failed to commit balance for session {SessionToken}.", sessionToken);
+                _logger.LogError(ex, "Failed to commit balance for sessionToken: {SessionToken}", sessionToken);
+                throw;
             }
         }
 
@@ -213,10 +262,15 @@ namespace Play929Backend.Hubs
             var sessionToken = Context.GetHttpContext()?.Request.Query["access_token"].ToString();
             if (!string.IsNullOrEmpty(sessionToken) && _gameStates.TryGetValue(sessionToken, out var gameState))
             {
-                if (gameState.ConnectionId == Context.ConnectionId)
+                lock (gameState.Lock)
                 {
-                    await CommitBalanceAsync(sessionToken, gameState.Wallet, gameState);
-                    _gameStates.TryRemove(sessionToken, out _);
+                    if (gameState.ConnectionId == Context.ConnectionId)
+                    {
+                        _logger.LogInformation("Client disconnected for sessionToken: {SessionToken}, ConnectionId: {ConnectionId}", 
+                            sessionToken, Context.ConnectionId);
+                        await CommitBalanceAsync(sessionToken, gameState.Wallet, gameState);
+                        _gameStates.TryRemove(sessionToken, out _);
+                    }
                 }
             }
             await base.OnDisconnectedAsync(exception);
