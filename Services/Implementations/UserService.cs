@@ -28,7 +28,7 @@ namespace Play929Backend.Services.Implementations
         private const string FailedAttemptsPrefix = "FailedAttempts_";
         private const int MaxFailedAttempts = 5;
         private const int LockoutMinutes = 15;
-
+        private readonly IEmailService _emailService;
         private readonly AppDbContext _context;
         private readonly IMemoryCache _cache;
         private readonly ILogger<UserService> _logger;
@@ -37,6 +37,7 @@ namespace Play929Backend.Services.Implementations
 
         public UserService(
             AppDbContext context,
+            IEmailService emailService,
             IMemoryCache memoryCache,
             ILogger<UserService> logger,
             IConfiguration config,
@@ -44,6 +45,7 @@ namespace Play929Backend.Services.Implementations
         {
             _context = context;
             _cache = memoryCache;
+            _emailService = emailService;
             _logger = logger;
             _config = config;
             _securityLogService = securityLogService;
@@ -168,8 +170,60 @@ namespace Play929Backend.Services.Implementations
                 return AuthenticationResult.Failed("Incorrect email or password");
             }
 
-            if (!user.IsActive)
-                return AuthenticationResult.Failed("Account not activated. Please check your email.");
+             if (!user.IsActive || !user.IsEmailVerified)
+            {
+                // Find latest valid token
+                var existingToken = await _context.AccountVerificationTokens
+                    .Where(t => t.UserId == user.Id && !t.Used && t.ExpiresAt > DateTime.UtcNow)
+                    .OrderByDescending(t => t.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (existingToken != null)
+                {
+                    // Cooldown: only allow resending every 5 minutes
+                    if ((DateTime.UtcNow - existingToken.CreatedAt).TotalMinutes < 5)
+                    {
+                        return AuthenticationResult.Failed("Account not activated. Verification email already sent recently. Please check your inbox.");
+                    }
+
+                    // ✅ Reuse existing token
+                    var userToken = existingToken.Token;
+                    var verifyLink = $"https://secure.play929.com/verify-email?token={userToken}";
+                    await _emailService.SendTemplateEmailAsync(
+                        toEmail : user.Email,
+                        template: EmailTemplate.EmailVerify,
+                        templateData: new { FullName = user.FullNames, VerifyLink = verifyLink, ExpiryHours = 24 },
+                        subject: "Verify Your Play929 Account"
+                    );
+
+                    return AuthenticationResult.Failed("Account not activated. A new verification email has been sent.");
+                }
+
+                // No valid token → generate new one
+                var newToken = new AccountVerificationToken
+                {
+                    UserId = user.Id,
+                    Token =  GenerateSecureToken(),
+                    Used = false,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddHours(24)
+                };
+
+                _context.AccountVerificationTokens.Add(newToken);
+                await _context.SaveChangesAsync();
+
+                var userToken = newToken.Token;
+                var verifyLink = $"https://secure.play929.com/verify-email?token={userToken}";
+
+                await _emailService.SendTemplateEmailAsync(
+                    toEmail : user.Email,
+                    template: EmailTemplate.EmailVerify,
+                    templateData: new { FullName = user.FullNames, VerifyLink = verifyLink, ExpiryHours = 24 },
+                    subject: "Verify Your Play929 Account"
+                );
+
+                return AuthenticationResult.Failed("Account not activated. A verification email has been sent.");
+            }
 
             if (user.IsLocked)
                 return AuthenticationResult.Locked("Account is locked. Contact support@play929.com");
@@ -417,6 +471,19 @@ namespace Play929Backend.Services.Implementations
         private bool IsAccountLocked(string email)
         {
             return _cache.TryGetValue(LockoutCachePrefix + email, out bool locked) && locked;
+        }
+        private string GenerateSecureToken(int sizeInBytes = 32)
+        {
+            // Generate cryptographically secure random bytes
+            byte[] tokenBytes = RandomNumberGenerator.GetBytes(sizeInBytes);
+
+            // Convert to URL-safe Base64 string
+            string token = Convert.ToBase64String(tokenBytes)
+                .Replace("+", "-")
+                .Replace("/", "_")
+                .TrimEnd('=');
+
+            return token;
         }
 
        private bool IsPasswordExpired(User user)
