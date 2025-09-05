@@ -14,6 +14,8 @@ using Play929Backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace Play929Backend.Controllers
 {
