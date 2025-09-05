@@ -264,7 +264,11 @@ app.Use(async (context, next) =>
     font-src 'self';
     ";
 
-    context.Response.Headers.Add("Content-Security-Policy", csp.Replace("\r\n", ""));
+csp = string.Join(" ", csp.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+                          .Select(line => line.Trim()));
+
+context.Response.Headers.Add("Content-Security-Policy", csp);
+
     await next();
 });
 
