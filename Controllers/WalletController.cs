@@ -21,8 +21,8 @@ namespace Play929Backend.Controllers
         private readonly IWalletService _walletService;
         private readonly ISecurityLogService _securityLogService;
         private readonly ILogger<WalletController> _logger;
-        private readonly string _jsonFilePath = Path.Combine("paymentData", "withdrawalMethods.json");
-        private readonly string _jsonFileDepositPath = Path.Combine("paymentData", "depositMethods.json");
+        private readonly string _jsonFilePath = Path.Combine("PaymentData", "withdrawalMethods.json");
+        private readonly string _jsonFileDepositPath = Path.Combine("PaymentData", "depositMethods.json");
 
         public WalletController(IWalletService walletService, ILogger<WalletController> logger, ISecurityLogService securityLogService)
         {
@@ -59,16 +59,6 @@ namespace Play929Backend.Controllers
 
                 if (balance < 0)
                     return BadRequest("Invalid balance retrieved");
-
-                
-                await _securityLogService.LogSecurityEventAsync(new SecurityLog
-                {
-                    UserId = wallet.UserId,
-                    IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    Action = "Balance Enquiry",
-                    Timestamp = DateTime.UtcNow,
-                    Description = "User checked balance"
-                });
 
                 return Ok(new { balance });
             }
