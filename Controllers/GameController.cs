@@ -212,7 +212,7 @@ namespace Play929Backend.Controllers
 
                 await transaction.CommitAsync();
 
-                var gameUrl = $"http://localhost:5245/game/word-search/play?launchToken={Uri.EscapeDataString(launchToken.LaunchToken)}";
+                var gameUrl = $"https://secure.play929.com/game/word-search/play?launchToken={Uri.EscapeDataString(launchToken.LaunchToken)}";
 
                 return Ok(new { RedirectUrl = gameUrl });
             }
@@ -290,7 +290,7 @@ namespace Play929Backend.Controllers
 
                 await transaction.CommitAsync();
 
-                var gameUrl = $"http://localhost:5245/game/cup-game/play?launchToken={Uri.EscapeDataString(launchToken.LaunchToken)}";
+                var gameUrl = $"https://secure.play929.com/game/cup-game/play?launchToken={Uri.EscapeDataString(launchToken.LaunchToken)}";
 
                 return Ok(new { RedirectUrl = gameUrl });
             }
