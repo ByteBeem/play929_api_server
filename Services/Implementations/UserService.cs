@@ -172,6 +172,10 @@ namespace Play929Backend.Services.Implementations
 
              if (!user.IsActive || !user.IsEmailVerified)
             {
+                string userToken;
+                string verifyLink;
+
+
                 // Find latest valid token
                 var existingToken = await _context.AccountVerificationTokens
                     .Where(t => t.UserId == user.Id && !t.Used && t.ExpiresAt > DateTime.UtcNow)
@@ -187,8 +191,8 @@ namespace Play929Backend.Services.Implementations
                     }
 
                     // ✅ Reuse existing token
-                    var userToken = existingToken.Token;
-                    var verifyLink = $"https://secure.play929.com/verify-email?token={userToken}";
+                    userToken = existingToken.Token;
+                    verifyLink = $"https://secure.play929.com/verify-email?token={userToken}";
                     await _emailService.SendTemplateEmailAsync(
                         toEmail : user.Email,
                         template: EmailTemplate.EmailVerify,
@@ -212,8 +216,8 @@ namespace Play929Backend.Services.Implementations
                 _context.AccountVerificationTokens.Add(newToken);
                 await _context.SaveChangesAsync();
 
-                var userToken = newToken.Token;
-                var verifyLink = $"https://secure.play929.com/verify-email?token={userToken}";
+                userToken = newToken.Token;
+                verifyLink = $"https://secure.play929.com/verify-email?token={userToken}";
 
                 await _emailService.SendTemplateEmailAsync(
                     toEmail : user.Email,
