@@ -347,69 +347,90 @@ namespace Play929Backend.Controllers
 
         
        [HttpGet("/verify-email")]
-        public async Task<IActionResult> Verify([FromQuery] string token)
+public async Task<IActionResult> Verify([FromQuery] string token)
+{
+    if (string.IsNullOrWhiteSpace(token))
+        return Content("<h1>Invalid Request</h1><p>Missing token.</p>", "text/html");
+
+    // Get token first
+    var dbtoken = await _context.AccountVerificationTokens
+        .FirstOrDefaultAsync(t =>
+            t.Token == token &&
+            !t.Used &&
+            t.ExpiresAt > DateTime.UtcNow
+        );
+
+    if (dbtoken == null)
+        return Content("<h1>Invalid or Expired Token</h1><p>Please request a new verification email.</p>", "text/html");
+
+    // Get the user separately
+    var user = await _context.Users
+        .FirstOrDefaultAsync(u => u.Id == dbtoken.UserId);
+
+    if (user == null)
+        return Content("<h1>User Not Found</h1><p>Unable to verify your email.</p>", "text/html");
+
+    // Update states
+    user.IsEmailVerified = true;
+    user.IsActive = true;
+    dbtoken.Used = true;
+
+    await _context.SaveChangesAsync();
+
+    // Generate access token
+    var accessToken = await _userService.GenerateAccessToken(user);
+    var dashboardLink = $"https://dashboard.play929.com/?sid={accessToken}";
+
+    // Optional: send welcome email
+    await _emailService.SendTemplateEmailAsync(
+        toEmail: user.Email,
+        template: EmailTemplate.Notification,
+        templateData: new
         {
-            if (string.IsNullOrWhiteSpace(token))
-                return Content("<h1>Invalid Request</h1><p>Missing token.</p>", "text/html");
+            FullName = user.FullNames,
+            dashboardLink,
+            Message = "Your email has been successfully verified and received our R20 signup bonus. You can now log in to your account."
+        },
+        subject: "Welcome to Play929!"
+    );
 
-            var dbtoken = await _context.AccountVerificationTokens
-                .Include(t => t.User)
-                .FirstOrDefaultAsync(t =>
-                    t.Token == token &&
-                    !t.Used &&
-                    t.ExpiresAt > DateTime.UtcNow
-                );
+    // HTML verification page
+    var html = $@"
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Email Verified - Play929</title>
+    <link href='https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css' rel='stylesheet'>
+    <script src='https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js'></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', (event) => {{
+            // Confetti animation
+            confetti({{ particleCount: 150, spread: 70, origin: {{ y: 0.6 }} }});
+            
+            // Auto redirect after 5 seconds
+            setTimeout(() => {{
+                window.location.href = '{dashboardLink}';
+            }}, 5000);
+        }});
+    </script>
+</head>
+<body class='bg-gradient-to-r from-green-100 to-green-50 flex items-center justify-center min-h-screen'>
+    <div class='bg-white p-10 rounded-2xl shadow-2xl max-w-md text-center'>
+        <h1 class='text-3xl font-extrabold text-green-700 mb-4'>🎉 Email Verified Successfully!</h1>
+        <p class='text-gray-700 mb-4'>Hi <strong>{user.FullNames}</strong>, your email has been verified and your account is now active.</p>
+        <p class='text-gray-700 mb-6'>You’ve received a <strong>R20 signup bonus</strong>. Welcome aboard!</p>
+        <a href='{dashboardLink}' class='inline-block bg-green-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-green-700 transition'>
+            Go to Dashboard
+        </a>
+        <p class='mt-4 text-gray-500 text-sm'>Redirecting to dashboard in 5 seconds...</p>
+    </div>
+</body>
+</html>
+";
 
-            if (dbtoken == null)
-                return Content("<h1>Invalid or Expired Token</h1><p>Please request a new verification email.</p>", "text/html");
-
-            var user = dbtoken.User;
-
-            user.IsEmailVerified = true;
-            user.IsActive = true;
-            dbtoken.Used = true;
-            await _context.SaveChangesAsync();
-
-            var accessToken = await _userService.GenerateAccessToken(user);
-            var dashboardLink = $"https://dashboard.play929.com/?sid={accessToken}";
-
-            // Optional: send welcome email
-            await _emailService.SendTemplateEmailAsync(
-                toEmail: user.Email,
-                template: EmailTemplate.Notification,
-                templateData: new
-                {
-                    FullName = user.FullNames,
-                    dashboardLink,
-                    Message = "Your email has been successfully verified and received our R20 signup bonus. You can now log in to your account."
-                },
-                subject: "Welcome to Play929!"
-            );
-
-            // Return HTML page
-            var html = $@"
-            <!DOCTYPE html>
-            <html lang='en'>
-            <head>
-                <meta charset='UTF-8'>
-                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-                <title>Email Verified - Play929</title>
-                <link href='https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css' rel='stylesheet'>
-            </head>
-            <body class='bg-gray-50 flex items-center justify-center min-h-screen'>
-                <div class='bg-white p-8 rounded-lg shadow-lg max-w-lg text-center'>
-                    <h1 class='text-2xl font-bold text-green-600 mb-4'>Email Verified Successfully!</h1>
-                    <p class='text-gray-700 mb-6'>Hi {user.FullNames}, your email has been verified and your account is now active.</p>
-                    <p class='text-gray-700 mb-6'>You have received a <strong>R20 signup bonus</strong>. 🎉</p>
-                    <a href='{dashboardLink}' class='inline-block bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition'>
-                        Go to Dashboard
-                    </a>
-                </div>
-            </body>
-            </html>
-            ";
-
-            return Content(html, "text/html");
+    return Content(html, "text/html");
 }
 
 
