@@ -397,6 +397,29 @@ public async Task<IActionResult> Verify([FromQuery] string token)
             subject: "Welcome to Play929!"
         );
 
+        var refreshTokenValue = await _userService.GenerateRefreshToken(user);
+
+                var refreshToken = new RefreshToken
+                {
+                    Id = Guid.NewGuid(),
+                    Token = refreshTokenValue,
+                    Expires = DateTime.UtcNow.AddDays(7),
+                    UserId = user.Id,
+                    Revoked = false
+                };
+
+                await _userService.StoreRefreshTokenAsync(refreshToken);
+
+             Response.Cookies.Append("refreshToken", refreshTokenValue, new CookieOptions
+                {
+                    HttpOnly = true,                   
+                    Secure = true,                      
+                    SameSite = SameSiteMode.None,        
+                    Domain = ".play929.com",             
+                    Expires = DateTime.UtcNow.AddDays(7),
+                    Path = "/"                            
+                });
+
         // Redirect to static success page with query params
         return Redirect($"/verify-email-success.html?name={Uri.EscapeDataString(user.FullNames)}&link={Uri.EscapeDataString(dashboardLink)}");
     }
