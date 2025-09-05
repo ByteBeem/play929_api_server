@@ -249,7 +249,7 @@ namespace Play929Backend.Services.Implementations
             }
         }
 
-       private async Task SaveEmailVerificationTokenAsync(int userId, string token, int expiryHours = 24)
+       public async Task SaveEmailVerificationTokenAsync(int userId, string token, int expiryHours = 24)
         {
             if (userId <= 0)
                 throw new ArgumentException("User ID must be a positive integer.", nameof(userId));
