@@ -1,0 +1,47 @@
+{
+
+    "methods": [
+        {
+          "id": "bank",
+          "name": "Internet Banking",
+          "details": "Processing Time: Instant \nFee: 0%\nLimit: R200 - R200 000",
+          "recommended": true,
+          "active": true,
+          "logo": "https://pp.ekspp.com/images/payments/pm/Online_transfer_ZAR/48/True.svg"
+        },
+        {
+          "id": "paypal",
+          "name": "PayPal",
+          "details": "Processing Time: Instant\nFee: 0%\nLimit: R100 - R100 000",
+          "recommended": false,
+          "active": false,
+          "logo": "https://www.svgrepo.com/show/452082/paypal.svg"
+        },
+        {
+          "id": "skrill",
+          "name": "Skrill",
+          "details": "Processing Time: Instant\nFee: 0%\nLimit: R50 - R50 000",
+          "recommended": false,
+          "active": false,
+          "logo": "https://pp.ekspp.com/images/payments/pm/Skrill/48/True.svg"
+        },
+        {
+            "id": "binance_pay",
+            "name": "Binance Pay",
+            "details": "Processing Time: Instant\nFee: 0%\nLimit: R50 - R5000",
+            "recommended": false,
+            "active": false,
+            "logo": "https://pp.ekspp.com/images/payments/pm/Binance/48/True.svg"
+          },
+    
+          {
+            "id": "neteller",
+            "name": "Neteller",
+            "details": "Processing Time: Instant\nFee: 0%\nLimit: R10 - R5000",
+            "recommended": false,
+            "active": false,
+            "logo": "https://pp.ekspp.com/images/payments/pm/Neteller/48/True.svg"
+          }
+    
+      ]
+    }

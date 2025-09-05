@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0; padding:0; background-color:#f5f6fa; font-family: Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f5f6fa; padding:20px 12px;">
+      <tr>
+        <td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px; width:100%; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.06);">
+            <!-- Header -->
+            <tr>
+              <td style="background:#4CAF50; padding:22px 28px; text-align:center;">
+                <img alt="Play929" src="https://dummyimage.com/120x32/ffffff/ffffff.png&text=Play929" width="120" height="32" style="display:block; margin:0 auto 6px auto; border:0; outline:none;">
+                <h1 style="margin:8px 0 0 0; font-size:22px; line-height:28px; color:#ffffff;">Verify your email</h1>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:32px 28px 10px 28px; color:#2a2a2a;">
+                <p style="margin:0 0 16px 0; font-size:16px; line-height:24px;">Hi <strong>{{FullName}}</strong>,</p>
+                <p style="margin:0 0 18px 0; font-size:15px; line-height:24px;">
+                  Thanks for joining <strong>Play929</strong>! Please confirm this email address to activate your account and keep it secure.
+                </p>
+
+                <!-- CTA Button -->
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0;">
+                  <tr>
+                    <td align="center">
+                      <a href="{{VerifyLink}}"
+                         style="display:inline-block; background:#4CAF50; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:8px; font-weight:bold; font-size:15px;">
+                        Verify Email
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Expiry / Info -->
+                <p style="margin:0 0 14px 0; font-size:13px; line-height:20px; color:#5f6a78;">
+                  For your security, this link expires in <strong>{{ExpiryHours}} hours</strong>. If the button doesn’t work, copy and paste this link into your browser:
+                </p>
+                <p style="margin:6px 0 18px 0; font-size:12px; line-height:18px; color:#4CAF50; word-break:break-all;">
+                  {{VerifyLink}}
+                </p>
+
+                <!-- Security Note -->
+                <div style="background:#f7fbf8; border:1px solid #e2f2e5; border-radius:8px; padding:14px 16px; margin:0 0 10px 0;">
+                  <p style="margin:0; font-size:13px; line-height:20px; color:#2f3b45;">
+                    Didn’t create an account? You can safely ignore this email, or let us know at
+                    <a href="mailto:support@play929.com" style="color:#4CAF50; text-decoration:none;">support@play929.com</a>.
+                  </p>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background:#f5f6fa; padding:18px 28px; text-align:center; color:#8b98a5; font-size:12px; line-height:18px;">
+                <p style="margin:0 0 4px 0;">&copy; 2025 Play929. All rights reserved.</p>
+                <p style="margin:0;">
+                  You received this email because a request was made to verify your address for a Play929 account.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Fallback spacer -->
+          <div style="height:24px; line-height:24px; font-size:24px;">&#8202;</div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\Play929Backend.props" />
+</Project>
