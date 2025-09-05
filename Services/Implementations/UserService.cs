@@ -372,6 +372,61 @@ namespace Play929Backend.Services.Implementations
             return tokenHandler.WriteToken(token);
         }
 
+         public async Task<bool> UpdateUserAndVerificationTokens(User user, AccountVerificationToken token, IDbContextTransaction transaction = null)
+        {
+            if (user == null)
+                throw new ArgumentNullException(nameof(user));
+            if (token == null)
+                throw new ArgumentNullException(nameof(token));
+
+            _logger.LogInformation("Updating user and verification token. UserId: {UserId}, Token: {Token}", user.Id, token.Token);
+
+            // Log initial entity states
+            var userState = _context.Entry(user).State;
+            var tokenState = _context.Entry(token).State;
+            _logger.LogInformation("Before updates - User state: {UserState}, Token state: {TokenState}", userState, tokenState);
+
+            // Attach entities if detached
+            if (userState == EntityState.Detached)
+            {
+                _context.Users.Attach(user);
+                _context.Entry(user).State = EntityState.Modified;
+                _logger.LogInformation("Attached and marked user as Modified");
+            }
+            if (tokenState == EntityState.Detached)
+            {
+                _context.AccountVerificationTokens.Attach(token);
+                _context.Entry(token).State = EntityState.Modified;
+                _logger.LogInformation("Attached and marked token as Modified");
+            }
+
+            // Update states
+            user.IsEmailVerified = true;
+            user.IsActive = true;
+            token.Used = true;
+
+            // Log entity states after updates
+            _logger.LogInformation("After updates - User state: {UserState}, Token state: {TokenState}, " +
+                "IsEmailVerified={IsEmailVerified}, IsActive={IsActive}, Used={Used}", 
+                _context.Entry(user).State, _context.Entry(token).State, 
+                user.IsEmailVerified, user.IsActive, token.Used);
+
+            try
+            {
+                _logger.LogInformation("Calling SaveChangesAsync in UserService");
+                var changes = await _context.SaveChangesAsync();
+                _logger.LogInformation("SaveChangesAsync completed. Number of changes saved: {Changes}", changes);
+                return changes > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update user and verification token. UserId: {UserId}, Token: {Token}. Inner exception: {InnerException}", 
+                    user.Id, token.Token, ex.InnerException?.Message);
+                throw; 
+            }
+        }
+        
+
 
        public async Task<User> GetUserByEmailAsync(string email)
         {

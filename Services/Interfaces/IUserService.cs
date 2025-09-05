@@ -29,6 +29,7 @@ namespace Play929Backend.Services.Interfaces
         Task StoreRefreshTokenAsync(RefreshToken refreshToken);
         Task<User> GetUserByIdAsync(int userId);
         Task SaveEmailVerificationTokenAsync(int userId, string token, int expiryHours = 24);
+        Task<bool> UpdateUserAndVerificationTokens(User user, AccountVerificationToken token, IDbContextTransaction transaction = null);
     
     }
 }
