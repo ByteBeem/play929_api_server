@@ -2,6 +2,10 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
+
+namespace Play929Backend.Models
+{
+
 public class AccountVerificationToken
 {
     [Key]
@@ -21,4 +25,5 @@ public class AccountVerificationToken
     public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddHours(24); 
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
 }

@@ -14,6 +14,8 @@ using Play929Backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace Play929Backend.Controllers
 {
@@ -31,10 +33,11 @@ namespace Play929Backend.Controllers
         private readonly ILogger<UserController> _logger;
         private readonly IConfiguration _config;
         private readonly ISecurityLogService _securityLogService;
-
+        private readonly AppDbContext _context;
         private const string RedirectLink = "https://dashboard.play929.com";
 
         public UserController(
+         AppDbContext context,
             IUserService userService,
             IEmailService emailService,
             IWalletService walletService,
@@ -53,6 +56,7 @@ namespace Play929Backend.Controllers
             _backgroundQueue = backgroundQueue;
             _logger = logger;
             _config = config;
+            _context = context;
             _securityLogService = securityLogService;
         }
 
@@ -348,7 +352,7 @@ namespace Play929Backend.Controllers
             if (string.IsNullOrWhiteSpace(token))
                 return BadRequest(new { error = "Missing token." });
 
-            var dbtoken = await _dbContext.AccountVerificationTokens
+            var dbtoken = await _context.AccountVerificationTokens
             .Include(t => t.User)
             .FirstOrDefaultAsync(t =>
                 t.Token == token &&

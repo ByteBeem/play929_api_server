@@ -61,6 +61,9 @@ namespace Play929Backend.Models
         // Navigation Properties
         public virtual Wallet Wallet { get; set; }
 
+         public virtual ICollection<AccountVerificationToken> AccountVerificationTokens { get; set; } 
+            = new List<AccountVerificationToken>();
+
         
     }
 }
