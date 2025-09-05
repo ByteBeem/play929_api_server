@@ -42,7 +42,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("RestrictedCors", policy =>
     {
-        policy.WithOrigins("https://my.play929.com" , "https://dashboard.play929.com/?")
+        policy.WithOrigins("https://my.play929.com" , "https://dashboard.play929.com")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

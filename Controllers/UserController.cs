@@ -366,7 +366,9 @@ public async Task<IActionResult> Verify([FromQuery] string token)
         if (dbtoken == null)
             return Redirect("/verify-email-fail.html?message=Invalid+or+expired+token");
 
-        var user = dbtoken.User;
+        var user = await _context.Users 
+            .FirstOrDefaultAsync(u => u.Id == dbtoken.UserId);
+            
         if (user == null)
             return Redirect("/verify-email-fail.html?message=User+not+found");
 
