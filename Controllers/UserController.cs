@@ -350,30 +350,30 @@ namespace Play929Backend.Controllers
         public async Task<IActionResult> Verify([FromQuery] string token)
         {
             if (string.IsNullOrWhiteSpace(token))
-                return BadRequest(new { error = "Missing token." });
+                return Content("<h1>Invalid Request</h1><p>Missing token.</p>", "text/html");
 
             var dbtoken = await _context.AccountVerificationTokens
-            .Include(t => t.User)
-            .FirstOrDefaultAsync(t =>
-                t.Token == token &&
-                !t.Used &&
-                t.ExpiresAt > DateTime.UtcNow
-            );
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t =>
+                    t.Token == token &&
+                    !t.Used &&
+                    t.ExpiresAt > DateTime.UtcNow
+                );
 
-                if (dbtoken == null)
-                    return Unauthorized(new { error = "Invalid or expired  token." });
+            if (dbtoken == null)
+                return Content("<h1>Invalid or Expired Token</h1><p>Please request a new verification email.</p>", "text/html");
 
-        
             var user = dbtoken.User;
 
             user.IsEmailVerified = true;
             user.IsActive = true;
+            dbtoken.Used = true;
             await _context.SaveChangesAsync();
 
             var accessToken = await _userService.GenerateAccessToken(user);
-
-            // Send templated email
             var dashboardLink = $"https://dashboard.play929.com/?sid={accessToken}";
+
+            // Optional: send welcome email
             await _emailService.SendTemplateEmailAsync(
                 toEmail: user.Email,
                 template: EmailTemplate.Notification,
@@ -386,12 +386,32 @@ namespace Play929Backend.Controllers
                 subject: "Welcome to Play929!"
             );
 
-            return Ok(new
-            {
-                message = "Email verified successfully.",
-                dashboardLink
-            });
-        }
+            // Return HTML page
+            var html = $@"
+            <!DOCTYPE html>
+            <html lang='en'>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                <title>Email Verified - Play929</title>
+                <link href='https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css' rel='stylesheet'>
+            </head>
+            <body class='bg-gray-50 flex items-center justify-center min-h-screen'>
+                <div class='bg-white p-8 rounded-lg shadow-lg max-w-lg text-center'>
+                    <h1 class='text-2xl font-bold text-green-600 mb-4'>Email Verified Successfully!</h1>
+                    <p class='text-gray-700 mb-6'>Hi {user.FullNames}, your email has been verified and your account is now active.</p>
+                    <p class='text-gray-700 mb-6'>You have received a <strong>R20 signup bonus</strong>. 🎉</p>
+                    <a href='{dashboardLink}' class='inline-block bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition'>
+                        Go to Dashboard
+                    </a>
+                </div>
+            </body>
+            </html>
+            ";
+
+            return Content(html, "text/html");
+}
+
 
 
         [Authorize]
