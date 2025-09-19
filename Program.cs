@@ -26,11 +26,31 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
-
+using System.Security.Cryptography.X509Certificates;
 
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ----------------------------------
+// Kestrel to use Certbot certs
+// ----------------------------------
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    // HTTP on port 80
+    serverOptions.ListenAnyIP(80);
+
+    // HTTPS on port 443 using Let's Encrypt certs
+    serverOptions.ListenAnyIP(443, listenOptions =>
+    {
+        var cert = X509Certificate2.CreateFromPemFile(
+            "/etc/letsencrypt/live/secure.play929.com/fullchain.pem",
+            "/etc/letsencrypt/live/secure.play929.com/privkey.pem"
+        );
+
+        listenOptions.UseHttps(cert);
+    });
+});
 
 
 var securitySettings = builder.Configuration.GetSection("Security");
@@ -283,7 +303,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
-    app.UseHttpsRedirection();
+
 }
 
 
